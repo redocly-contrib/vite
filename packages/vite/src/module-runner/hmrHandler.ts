@@ -85,7 +85,7 @@ async function reimportEntrypoints(
   runner: ModuleRunner,
   entrypointUrls: Set<string>,
 ): Promise<void> {
-  runner.evaluatedModules.clear()
+  runner.clearCache()
 
   for (const url of entrypointUrls) {
     if (runner.isClosed()) break

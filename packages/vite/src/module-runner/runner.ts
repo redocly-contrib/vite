@@ -187,6 +187,18 @@ export class ModuleRunner {
   public clearCache(): void {
     this.evaluatedModules.clear()
     this.hmrClient?.clear()
+    this.moduleHotContexts.clear()
+    // a program reload re-registers every module from the current bundle; modules
+    // and factories left by earlier HMR patches would shadow the rebuilt ones
+    const runtime = this.rolldownDevRuntime
+    if (runtime) {
+      runtime.moduleCache.clear()
+      runtime.factories.clear()
+      runtime.staticImports.clear()
+      runtime.importers.clear()
+      runtime.dynamicImports.clear()
+      runtime.dynamicImporters.clear()
+    }
   }
 
   /**
