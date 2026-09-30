@@ -1,7 +1,7 @@
 {
-  "name": "vite",
+  "name": "@redocly/vite",
   "version": "8.3.1",
-  "description": "Native-ESM powered web dev build tool",
+  "description": "Vite with full bundle mode in SSR (vitejs/vite#21626) — temporary Redocly fork of vite@8.3.1",
   "keywords": [
     "build-tool",
     "dev-server",
@@ -10,15 +10,15 @@
     "hmr",
     "vite"
   ],
-  "homepage": "https://vite.dev",
+  "homepage": "https://github.com/redocly-contrib/vite",
   "bugs": {
-    "url": "https://github.com/vitejs/vite/issues"
+    "url": "https://github.com/redocly-contrib/vite/issues"
   },
   "license": "MIT",
   "author": "Evan You",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vitejs/vite.git",
+    "url": "git+https://github.com/redocly-contrib/vite.git",
     "directory": "packages/vite"
   },
   "funding": "https://github.com/vitejs/vite?sponsor=1",
@@ -191,5 +191,8 @@
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
-  "//": "READ CONTRIBUTING.md to understand what to put under deps vs. devDeps!"
+  "//": "READ CONTRIBUTING.md to understand what to put under deps vs. devDeps!",
+  "publishConfig": {
+    "access": "public"
+  }
 }
