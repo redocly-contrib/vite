@@ -463,7 +463,9 @@ export class ModuleRunner {
       // it's possible to provide an object with toString() method inside import()
       dep = String(dep)
       if (dep[0] === '.') {
-        dep = posixJoin(posixDirname(url), dep)
+        // mod.url, not the requested specifier: a bundled chunk first reached by a
+        // relative static import ('./chunk.js') still lives in its output directory
+        dep = posixJoin(posixDirname(mod.url), dep)
       }
       return request(dep, { isDynamicImport: true })
     }

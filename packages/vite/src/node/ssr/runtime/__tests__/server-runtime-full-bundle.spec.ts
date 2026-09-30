@@ -363,6 +363,27 @@ describe.for([
   })
 })
 
+describe('module runner with eager full-bundle chunks', () => {
+  const input = [
+    './fixtures/chunk-dynamic/a.js',
+    './fixtures/chunk-dynamic/b.js',
+  ]
+  it.override('fullBundle', input)
+  it.override('config', {
+    build: {
+      rolldownOptions: { input, experimental: { devMode: { lazy: false } } },
+    },
+  })
+
+  it('an entry chunk first reached by a static import resolves its dynamic imports against its own path', async ({
+    runner,
+  }) => {
+    // a.js loads handler.js, whose chunk imports the b.js entry chunk by a relative path
+    const mod = await runner.import('./fixtures/chunk-dynamic/a.js')
+    expect(await mod.viaHandler()).toBe('lazy')
+  })
+})
+
 describe('not supported by bundle mode', () => {
   // if bundle throws an error, we should stopn waiting
   it('importing external cjs library checks exports', async ({ runner }) => {
