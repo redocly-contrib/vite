@@ -1,6 +1,6 @@
 {
   "name": "@redocly/vite",
-  "version": "8.3.1",
+  "version": "8.3.101",
   "description": "Vite with full bundle mode in SSR (vitejs/vite#21626) — temporary Redocly fork of vite@8.3.1",
   "keywords": [
     "build-tool",
