@@ -139,6 +139,7 @@ const nodeConfig = defineConfig({
     writeTypesPlugin(),
     enableSourceMapsInWatchModePlugin(),
     externalizeDepsInWatchPlugin(),
+    relativeModuleRunnerImportPlugin(),
   ],
 })
 
@@ -198,6 +199,32 @@ function writeTypesPlugin(): Plugin {
           'dist/node/module-runner.d.ts',
           "export * from '../../src/module-runner/index.ts'",
         )
+      }
+    },
+  }
+}
+
+// The node bundle imports the module runner by package name so that user code and
+// the server share one copy; a package published under another name (or installed
+// next to another vite) would resolve that name to a different package, so the
+// emitted import points at the sibling file instead.
+function relativeModuleRunnerImportPlugin(): Plugin {
+  return {
+    name: 'relative-module-runner-import',
+    renderChunk(code, chunk) {
+      if (!code.includes('"vite/module-runner"')) return null
+      const runnerPath = path.posix.relative(
+        path.posix.dirname(chunk.fileName),
+        'node/module-runner.js',
+      )
+      return {
+        code: code.replaceAll(
+          '"vite/module-runner"',
+          JSON.stringify(
+            runnerPath.startsWith('.') ? runnerPath : `./${runnerPath}`,
+          ),
+        ),
+        map: null,
       }
     },
   }
