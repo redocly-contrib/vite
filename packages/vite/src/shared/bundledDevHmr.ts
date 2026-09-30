@@ -277,7 +277,11 @@ export class BundledDevHMRClient extends HMRClient {
     url,
     seq,
   }: BundledDevUpdatePayload): Promise<void> {
-    if (this.reloadPending) return
+    if (this.reloadPending) {
+      // the reload re-evaluates the current bundle, which already has this change
+      this.lastSeq = seq
+      return
+    }
     if (seq !== this.lastSeq + 1) {
       this.requestFullReload(
         `hmr update sequence gap (expected ${this.lastSeq + 1}, got ${seq})`,
@@ -421,6 +425,15 @@ export class BundledDevHMRClient extends HMRClient {
       }),
     )
     return { type: 'update', updates }
+  }
+
+  /**
+   * A browser reloads into a fresh client; a module runner re-imports its
+   * entrypoints and keeps this client, so it re-arms it here.
+   * @internal
+   */
+  public onProgramReloaded(): void {
+    this.reloadPending = false
   }
 
   private requestFullReload(reason: string): void {

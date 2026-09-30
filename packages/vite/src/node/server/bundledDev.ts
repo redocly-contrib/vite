@@ -446,8 +446,14 @@ export class BundledDev {
       chunkFileNames: 'assets/[name]-[hash].js',
       assetFileNames: 'assets/[name]-[hash][extname]',
       minify: false,
+      // a server bundle inlines its maps for the module runner; `build.sourcemap: false`
+      // opts out (the maps triple the in-memory bundle)
       sourcemap:
-        this.environment.config.consumer === 'server' ? 'inline' : true,
+        this.environment.config.consumer === 'server'
+          ? this.environment.config.build.sourcemap === false
+            ? false
+            : 'inline'
+          : true,
     }
   }
 

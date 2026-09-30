@@ -85,6 +85,19 @@ export class ModuleRunner {
         onModuleCacheRemoval: (id) =>
           this._bundledDevHmrClient?.handleModuleCacheRemoval(id),
       }
+      // the server appends `__rolldown_runtime__.payloadDelivered(file)` to HMR
+      // patches and lazy chunks; report it like the browser client does
+      ;(
+        runtime as DevRuntime & {
+          payloadDelivered?: (filename: string) => void
+        }
+      ).payloadDelivered = (filename) => {
+        this.transport.send({
+          type: 'custom',
+          event: 'vite:bundled-dev:payload-delivered',
+          data: { filename },
+        })
+      }
     }
     if (options.hmr !== false) {
       const optionsHmr = options.hmr ?? true
@@ -251,6 +264,18 @@ export class ModuleRunner {
     const importee = callstack.at(-1)
 
     if (importee) mod.importers.add(importee)
+
+    // an HMR patch replaced this module's factory: the chunk namespace the
+    // runner evaluated is stale, the rolldown runtime owns the live module
+    if (
+      this.rolldownDevRuntime &&
+      'regionId' in meta &&
+      meta.regionId &&
+      (mod.evaluated || mod.promise) &&
+      this.rolldownDevRuntime.hasFactory(meta.regionId)
+    ) {
+      return this.rolldownDevRuntime.initModule(meta.regionId)
+    }
 
     // fast path: already evaluated modules can't deadlock
     if (mod.evaluated && mod.promise) {

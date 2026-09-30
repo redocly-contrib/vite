@@ -136,6 +136,10 @@ export async function fetchModule(
   }
 }
 
+// A rebuilt chunk is a new memory-file entry, so the entry identity keys the
+// transformed code: repeated imports and program reloads skip the transform.
+const bundledTransformCache = new WeakMap<object, string>()
+
 async function fetchBundledModule(
   environment: DevEnvironment,
   bundledDev: BundledDev,
@@ -187,6 +191,7 @@ async function fetchBundledModule(
       bundledDev,
       environment.config.root,
       url,
+      outDir,
     )
     if (!resolvedEntry) {
       const entrypoints = [...bundledDev.facadeToChunk.keys()]
@@ -209,6 +214,17 @@ async function fetchBundledModule(
     fileName = url
   }
 
+  // Lazy chunks have facades too; the runner refreshes their exports after HMR
+  // by regionId, like it does for config entries.
+  if (facadeId === undefined) {
+    for (const [facade, chunk] of bundledDev.facadeToChunk) {
+      if (chunk === fileName) {
+        facadeId = facade
+        break
+      }
+    }
+  }
+
   const memoryFile = bundledDev.memoryFiles.get(fileName)
   const code = memoryFile?.source
   if (code == null) {
@@ -222,8 +238,25 @@ async function fetchBundledModule(
   // the response for it. No-op unless this chunk is a pending HMR payload.
   bundledDev.markPayloadDelivered(fileName)
 
+  let transformed = bundledTransformCache.get(memoryFile)
+  if (transformed === undefined) {
+    const source = code.toString()
+    // TODO: this should be done in rolldown, there is already a function for it
+    // output.format = 'module-runner'
+    // See https://github.com/rolldown/rolldown/issues/8376
+    const ssrResult = await ssrTransform(source, null, url, source)
+    if (!ssrResult) {
+      throw new Error(`[vite] cannot apply ssr transform to '${url}'.`)
+    }
+    transformed = ssrResult.code
+    // remove shebang
+    if (transformed[0] === '#')
+      transformed = transformed.replace(/^#!.*/, (s) => ' '.repeat(s.length))
+    bundledTransformCache.set(memoryFile, transformed)
+  }
+
   const result: ViteFetchResult = {
-    code: code.toString(),
+    code: transformed,
     // To make sure dynamic imports resolve assets correctly.
     // (Dynamic import resolves relative urls with importer url)
     url: fileName,
@@ -240,19 +273,6 @@ async function fetchBundledModule(
       ? normalizePath(path.relative(process.cwd(), facadeId))
       : undefined,
   }
-  // TODO: this should be done in rolldown, there is already a function for it
-  // output.format = 'module-runner'
-  // See https://github.com/rolldown/rolldown/issues/8376
-  const ssrResult = await ssrTransform(result.code, null, url, result.code)
-  if (!ssrResult) {
-    throw new Error(`[vite] cannot apply ssr transform to '${url}'.`)
-  }
-  result.code = ssrResult.code
-
-  // remove shebang
-  if (result.code[0] === '#')
-    result.code = result.code.replace(/^#!.*/, (s) => ' '.repeat(s.length))
-
   return result
 }
 
@@ -302,9 +322,21 @@ function resolveBundledEntryFilename(
   environment: BundledDev,
   root: string,
   url: string,
+  outDir: string,
 ): [facadeId: string | undefined, chunkName: string] | undefined {
   if (environment.memoryFiles.has(url)) {
     return [undefined, url]
+  }
+  // The virtual output path: what `import.meta.filename` gives a bundled module
+  // that passes its own location around (e.g. to a child process).
+  const filePath = normalizePath(
+    url.startsWith('file://') ? fileURLToPath(url) : url,
+  )
+  if (filePath.startsWith(outDir + '/')) {
+    const chunkName = filePath.slice(outDir.length + 1)
+    if (environment.memoryFiles.has(chunkName)) {
+      return [undefined, chunkName]
+    }
   }
   // Already resolved by the user to be a url
   if (environment.facadeToChunk.has(url)) {

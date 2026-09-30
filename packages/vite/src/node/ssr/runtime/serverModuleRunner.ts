@@ -92,7 +92,9 @@ export const createServerModuleRunnerTransport = (options: {
       if (
         payload.type !== 'custom' &&
         payload.type !== 'update' &&
-        payload.type !== 'bundled-dev-update'
+        payload.type !== 'bundled-dev-update' &&
+        payload.type !== 'error' &&
+        payload.type !== 'full-reload'
       ) {
         throw new Error(
           `Cannot send events of type '${payload.type}' from the client to the server.`,
