@@ -86,9 +86,13 @@ export class BundledDev {
   })
 
   private lastBuildError: Error | null = null
+  /** The error of the last HMR-stage build; the next successful HMR or full build clears it. */
+  private lastHmrError: Error | null = null
 
   memoryFiles: MemoryFiles = new MemoryFiles()
   facadeToChunk: Map<string, string> = new Map()
+  /** Every emitted chunk's facade; a lazy compile re-maps a facade but keeps the older chunk. */
+  chunkToFacade: Map<string, string> = new Map()
 
   constructor(private environment: DevEnvironment) {}
 
@@ -138,12 +142,13 @@ export class BundledDev {
     })
     this.environment.hot.on('vite:client:connect', (_payload, client) => {
       // Replay the cached build error to freshly connected clients.
-      if (this.lastBuildError) {
+      const lastError = this.lastHmrError ?? this.lastBuildError
+      if (lastError) {
         debug?.('REPLAY: replaying last build error to newly connected client')
 
         client.send({
           type: 'error',
-          err: prepareError(this.lastBuildError),
+          err: prepareError(lastError),
         })
       }
     })
@@ -181,6 +186,7 @@ export class BundledDev {
               error: result,
             },
           )
+          this.lastHmrError = result
           // TODO: send to the specific client
           for (const client of this.clients.getAll()) {
             client.send({
@@ -190,6 +196,7 @@ export class BundledDev {
           }
           return
         }
+        this.lastHmrError = null
         const { updates, changedFiles } = result
         if (changedFiles.length === 0) {
           return
@@ -228,6 +235,7 @@ export class BundledDev {
           return
         }
         this.lastBuildError = null
+        this.lastHmrError = null
 
         this.storeOutputFiles(result.output)
 
@@ -284,8 +292,12 @@ export class BundledDev {
     await this.devEngine.ensureCurrentBuildFinish()
     const bundleState = await this.devEngine.getBundleState()
     if (bundleState.lastBuildErrored) {
+      const cause = this.lastHmrError ?? this.lastBuildError
       throw new Error(
-        `The last full bundle mode build has failed. See logs for more information.`,
+        cause
+          ? `The last full bundle mode build has failed:\n${cause.message}`
+          : `The last full bundle mode build has failed. See logs for more information.`,
+        { cause: cause ?? undefined },
       )
     }
   }
@@ -394,6 +406,7 @@ export class BundledDev {
     for (const outputFile of output) {
       if (outputFile.type === 'chunk' && outputFile.facadeModuleId) {
         this.facadeToChunk.set(outputFile.facadeModuleId, outputFile.fileName)
+        this.chunkToFacade.set(outputFile.fileName, outputFile.facadeModuleId)
       }
       this.memoryFiles.set(outputFile.fileName, () => {
         const source =

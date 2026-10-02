@@ -216,18 +216,10 @@ async function fetchBundledModule(
 
   // Lazy chunks have facades too; the runner refreshes their exports after HMR
   // by regionId, like it does for config entries.
-  if (facadeId === undefined) {
-    for (const [facade, chunk] of bundledDev.facadeToChunk) {
-      if (chunk === fileName) {
-        facadeId = facade
-        break
-      }
-    }
-  }
+  facadeId ??= bundledDev.chunkToFacade.get(fileName)
 
   const memoryFile = bundledDev.memoryFiles.get(fileName)
-  const code = memoryFile?.source
-  if (code == null) {
+  if (!memoryFile) {
     throw new Error(
       `[vite] the module '${url}' (chunk '${fileName}') ${
         importer ? ` imported from '${importer}'` : ''
@@ -240,7 +232,7 @@ async function fetchBundledModule(
 
   let transformed = bundledTransformCache.get(memoryFile)
   if (transformed === undefined) {
-    const source = code.toString()
+    const source = memoryFile.source.toString()
     // TODO: this should be done in rolldown, there is already a function for it
     // output.format = 'module-runner'
     // See https://github.com/rolldown/rolldown/issues/8376
