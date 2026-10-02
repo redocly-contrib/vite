@@ -198,6 +198,16 @@ export class ModuleRunner {
       runtime.importers.clear()
       runtime.dynamicImports.clear()
       runtime.dynamicImporters.clear()
+      if (!this.closed) {
+        // the dev engine tracks the factories this runner holds, so a cleared
+        // runner starts a new session
+        this._bundledDevHmrClient?.onProgramReloaded()
+        this.transport.send({
+          type: 'custom',
+          event: 'vite:client-connected',
+          data: { clientId: runtime.clientId },
+        })
+      }
     }
   }
 
@@ -207,10 +217,10 @@ export class ModuleRunner {
    */
   public async close(): Promise<void> {
     this.resetSourceMapSupport?.()
+    this.closed = true
     this.clearCache()
     this.hmrClient = undefined
     this._bundledDevHmrClient = undefined
-    this.closed = true
     await this.transport.disconnect?.()
   }
 

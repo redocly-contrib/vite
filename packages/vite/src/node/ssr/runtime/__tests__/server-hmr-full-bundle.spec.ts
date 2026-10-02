@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, onTestFinished } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vitest'
 import { runnerTest as it } from './fullBundle.utils'
 
 describe(
@@ -169,6 +169,53 @@ describe(
           test: 'I am initialized',
           hmr: true,
         })
+      })
+    })
+
+    describe('full bundle mode after the runner cache is cleared', () => {
+      it.override('fullBundle', ['./fixtures/hmr-session/entry.js'])
+      it.override('config', {
+        server: {
+          hmr: true,
+          watch: {},
+        },
+      })
+
+      it('a later edit is still applied as a hot update', async ({
+        runner,
+        environment,
+      }) => {
+        const entry = '/fixtures/hmr-session/entry.js'
+        const editDep = (from: string, to: string) =>
+          editFile('./fixtures/hmr-session/dep.js', (code) =>
+            code.replace(from, to),
+          )
+        const expectValue = (value: string) =>
+          vi.waitFor(async () => {
+            expect((await runner.import(entry)).value).toBe(value)
+          })
+        onTestFinished(() => {
+          editFile(
+            './fixtures/hmr-session/dep.js',
+            () => `export const value = 'initial'\n`,
+          )
+        })
+        await expectValue('initial')
+
+        // the patch gives the runner the factory of the accepting importer
+        editDep('initial', 'first')
+        await expectValue('first')
+
+        await environment.bundledDev!.devEngine.ensureLatestBuildOutput()
+        runner.clearCache()
+        await expectValue('first')
+
+        const debug = vi.spyOn(runner.hmrClient!.logger, 'debug')
+        editDep('first', 'second')
+        await expectValue('second')
+        expect(debug.mock.calls.flat().join('\n')).not.toContain(
+          'full reload needed',
+        )
       })
     })
   },

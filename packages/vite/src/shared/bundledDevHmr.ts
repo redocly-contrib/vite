@@ -434,6 +434,7 @@ export class BundledDevHMRClient extends HMRClient {
    */
   public onProgramReloaded(): void {
     this.reloadPending = false
+    this.lastSeq = 0
   }
 
   private requestFullReload(reason: string): void {

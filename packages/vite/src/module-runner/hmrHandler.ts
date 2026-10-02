@@ -45,7 +45,6 @@ export function createHMRHandlerForRunner(
         hmrClient.logger.debug(`program reload`)
         await hmrClient.notifyListeners('vite:beforeFullReload', payload)
         await reimportEntrypoints(runner, clearEntrypointUrls)
-        runner._bundledDevHmrClient?.onProgramReloaded()
         break
       }
       case 'prune':

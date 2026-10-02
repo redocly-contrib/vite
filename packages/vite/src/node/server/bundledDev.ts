@@ -133,8 +133,15 @@ export class BundledDev {
     this.environment.hot.on(
       'vite:client-connected',
       async (payload, client) => {
+        // a module runner keeps its id across program reloads; like a reloaded
+        // page, it holds only what the current bundle gave it
+        const isReload = this.clients.get(payload.clientId) !== undefined
         this.clients.setupIfNeeded(client, payload.clientId)
-        this.devEngine.registerClient(payload.clientId)
+        if (isReload) {
+          this.reloadNeededClientIds.delete(payload.clientId)
+          await this.devEngine.removeClient(payload.clientId)
+        }
+        await this.devEngine.registerClient(payload.clientId)
       },
     )
     this.environment.hot.on('vite:bundled-dev:payload-delivered', (payload) => {
