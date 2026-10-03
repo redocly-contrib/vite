@@ -32,6 +32,12 @@ export interface ServerModuleRunnerOptions extends Omit<
    * Provide a custom module evaluator. This controls how the code is executed.
    */
   evaluator?: ModuleEvaluator
+  /**
+   * How long a request to the server may take, in milliseconds; 0 removes the
+   * limit. A full-bundle build of a large project can exceed the default.
+   * @default 60000
+   */
+  transportTimeout?: number
 }
 
 function createHMROptions(
@@ -86,6 +92,7 @@ function resolveSourceMapOptions(options: ServerModuleRunnerOptions) {
 
 export const createServerModuleRunnerTransport = (options: {
   channel: NormalizedServerHotChannel
+  timeout?: number
 }): ModuleRunnerTransport => {
   const hmrClient: HotChannelClient = {
     send: (payload: HotPayload) => {
@@ -107,6 +114,7 @@ export const createServerModuleRunnerTransport = (options: {
   let handler: ((data: HotPayload) => void) | undefined
 
   return {
+    timeout: options.timeout,
     connect({ onMessage }) {
       options.channel.api!.outsideEmitter.on('send', onMessage)
       options.channel.api!.innerEmitter.emit(
@@ -157,6 +165,7 @@ export function createServerModuleRunner(
       ...options,
       transport: createServerModuleRunnerTransport({
         channel: environment.hot as NormalizedServerHotChannel,
+        timeout: options.transportTimeout,
       }),
       hmr,
       createImportMeta: createNodeImportMeta,
