@@ -260,7 +260,10 @@ export function assetPlugin(config: ResolvedConfig): Plugin {
 
         id = removeUrlQuery(id)
         let resolved: FileToBuiltUrlResult
-        if (!this.environment.config.isBundled) {
+        if (
+          !this.environment.config.isBundled ||
+          this.environment.config.command === 'serve'
+        ) {
           resolved = {
             type: 'string',
             value: await fileToDevUrl(this.environment, id),
@@ -434,7 +437,7 @@ export async function fileToUrl(
   asFileUrl = false,
 ): Promise<string> {
   const { environment } = pluginContext
-  if (!environment.config.isBundled) {
+  if (!environment.config.isBundled || environment.config.command === 'serve') {
     const value = await fileToDevUrl(environment, id, asFileUrl)
     return formatBuiltAsset({ type: 'string', value }, format)
   } else {
@@ -467,7 +470,7 @@ export async function fileToDevUrl(
   // If is svg and it's inlined in build, also inline it in dev to match
   // the behaviour in build due to quote handling differences.
   const cleanedId = cleanUrl(id)
-  if (cleanedId.endsWith('.svg')) {
+  if (cleanedId.endsWith('.svg') && !environment.config.isBundled) {
     const file = publicFile || cleanedId
     const content = await fsp.readFile(file)
     if (shouldInline(environment, file, id, content, undefined, undefined)) {
